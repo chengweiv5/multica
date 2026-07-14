@@ -567,6 +567,47 @@ func TestHTTPClient_SendMarkdownCard_HappyPath(t *testing.T) {
 // then once more implicitly when the outer body is encoded for the
 // HTTP request. Forgetting either pass corrupts the text Lark renders
 // (or worse, rejects the message with a body parse error).
+func TestHTTPClient_SendMarkdownCard_RewritesLocalImages(t *testing.T) {
+	fake := newLarkFake(t)
+	fake.stubToken("tok_md", 7200)
+	fake.stubSend(
+		map[string]any{
+			"code": 0,
+			"msg":  "ok",
+			"data": map[string]string{"message_id": "om_md_1"},
+		},
+		func(r *http.Request, body map[string]string) {
+			var card map[string]any
+			if err := json.Unmarshal([]byte(body["content"]), &card); err != nil {
+				t.Fatalf("content is not valid card JSON: %v", err)
+			}
+			bodyDoc, _ := card["body"].(map[string]any)
+			elements, _ := bodyDoc["elements"].([]any)
+			el, _ := elements[0].(map[string]any)
+			content, _ := el["content"].(string)
+			if strings.Contains(content, "![](/var/run/app/session/card-image.png)") {
+				t.Fatalf("local image markdown must not be forwarded verbatim: %q", content)
+			}
+			if strings.Contains(content, "/var/run/app/session/card-image.png") {
+				t.Fatalf("local image path must not be exposed in Lark card content: %q", content)
+			}
+			if !strings.Contains(content, "[image omitted]") {
+				t.Fatalf("local image should be replaced with an omission marker: %q", content)
+			}
+		},
+	)
+
+	c := newTestClient(fake, time.Now)
+	_, err := c.SendMarkdownCard(context.Background(), SendMarkdownCardParams{
+		InstallationID: testCreds(),
+		ChatID:         ChatID("oc_chat_42"),
+		Markdown:       "Scan this:\n\n![](/var/run/app/session/card-image.png)",
+	})
+	if err != nil {
+		t.Fatalf("send markdown card: %v", err)
+	}
+}
+
 func TestHTTPClient_SendTextMessage_EncodesSpecialCharacters(t *testing.T) {
 	cases := []struct {
 		name string
@@ -1109,8 +1150,8 @@ func TestHTTPClient_GetBotInfo_HappyPath(t *testing.T) {
 			"code": 0,
 			"msg":  "ok",
 			"bot": map[string]any{
-				"open_id":   "ou_bot_42",
-				"app_name":  "PersonalAgent",
+				"open_id":    "ou_bot_42",
+				"app_name":   "PersonalAgent",
 				"avatar_url": "https://example/avatar.png",
 			},
 		})
