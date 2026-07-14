@@ -12,6 +12,7 @@ import {
   EMPTY_SEARCH_PROJECTS_RESPONSE,
   EMPTY_USER,
   InboxUnreadSummarySchema,
+  InvitationSchema,
   IssueTriggerPreviewSchema,
   ListIssuesResponseSchema,
   SearchProjectsResponseSchema,
@@ -188,6 +189,36 @@ describe("TimelineEntriesSchema", () => {
     ]);
 
     expect(parsed[0]?.source_task_id).toBe("task-1");
+  });
+});
+
+describe("InvitationSchema", () => {
+  const invitation = {
+    id: "22222222-2222-2222-2222-222222222222",
+    workspace_id: "ws-1",
+    inviter_id: "user-1",
+    invitee_email: "invitee@example.com",
+    invitee_user_id: null,
+    role: "member",
+    status: "pending",
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-01-01T00:00:00Z",
+    expires_at: "2026-01-08T00:00:00Z",
+  };
+
+  it("preserves invite_url from newer backends", () => {
+    const parsed = InvitationSchema.parse({
+      ...invitation,
+      invite_url: "https://app.example.com/invite/22222222-2222-2222-2222-222222222222",
+    });
+
+    expect(parsed.invite_url).toBe("https://app.example.com/invite/22222222-2222-2222-2222-222222222222");
+  });
+
+  it("derives a relative invite_url when older backends omit it", () => {
+    const parsed = InvitationSchema.parse(invitation);
+
+    expect(parsed.invite_url).toBe("/invite/22222222-2222-2222-2222-222222222222");
   });
 });
 

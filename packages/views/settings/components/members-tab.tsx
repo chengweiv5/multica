@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Crown, Shield, User, Plus, MoreHorizontal, UserMinus, Clock, X, Mail } from "lucide-react";
+import { Crown, Shield, User, Plus, MoreHorizontal, UserMinus, Clock, X, Mail, Copy } from "lucide-react";
 import { ActorAvatar } from "../../common/actor-avatar";
 import type { MemberWithUser, MemberRole, Invitation } from "@multica/core/types";
 import { Input } from "@multica/ui/components/ui/input";
@@ -185,11 +185,13 @@ function MemberRow({
 function InvitationRow({
   invitation,
   canManage,
+  onCopyLink,
   onRevoke,
   busy,
 }: {
   invitation: Invitation;
   canManage: boolean;
+  onCopyLink: () => void;
   onRevoke: () => void;
   busy: boolean;
 }) {
@@ -204,21 +206,33 @@ function InvitationRow({
       </div>
       <div className="min-w-0 flex-1">
         <div className="text-sm font-medium truncate">{invitation.invitee_email}</div>
-        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-          <Clock className="h-3 w-3" />
-          <span>{t(($) => $.members.pending_status)}</span>
+        <div className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+          <Clock className="h-3 w-3 shrink-0" />
+          <span className="shrink-0">{t(($) => $.members.pending_status)}</span>
+          <span className="truncate font-mono">{invitation.invite_url}</span>
         </div>
       </div>
       {canManage && (
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          disabled={busy}
-          onClick={onRevoke}
-          title={t(($) => $.members.revoke_invitation_tooltip)}
-        >
-          <X className="h-4 w-4 text-muted-foreground" />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            disabled={busy}
+            onClick={onCopyLink}
+            title={t(($) => $.members.copy_invitation_link_tooltip)}
+          >
+            <Copy className="h-4 w-4 text-muted-foreground" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            disabled={busy}
+            onClick={onRevoke}
+            title={t(($) => $.members.revoke_invitation_tooltip)}
+          >
+            <X className="h-4 w-4 text-muted-foreground" />
+          </Button>
+        </div>
       )}
       <Badge variant="outline">
         {rc.label}
@@ -254,18 +268,36 @@ export function MembersTab() {
   const isOwner = currentMember?.role === "owner";
   const ownerCount = members.filter((m) => m.role === "owner").length;
 
+  const copyInvitationLink = async (url: string) => {
+    const link = url.startsWith("/") ? `${window.location.origin}${url}` : url;
+    try {
+      await navigator.clipboard.writeText(link);
+      toast.success(t(($) => $.members.toast_invitation_link_copied));
+    } catch {
+      toast.error(t(($) => $.members.toast_invitation_link_copy_failed));
+    }
+  };
+
   const handleInviteMember = async () => {
     if (!workspace) return;
     setInviteLoading(true);
     try {
-      await api.createMember(workspace.id, {
+      const invitation = await api.createMember(workspace.id, {
         email: inviteEmail,
         role: inviteRole,
       });
       setInviteEmail("");
       setInviteRole("member");
       qc.invalidateQueries({ queryKey: workspaceKeys.invitations(wsId) });
-      toast.success(t(($) => $.members.toast_invitation_sent));
+      toast.success(t(($) => $.members.toast_invitation_sent), {
+        description: t(($) => $.members.toast_invitation_link_ready),
+        action: {
+          label: t(($) => $.members.copy_invitation_link),
+          onClick: () => {
+            void copyInvitationLink(invitation.invite_url);
+          },
+        },
+      });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : t(($) => $.members.toast_invitation_failed));
     } finally {
@@ -406,6 +438,7 @@ export function MembersTab() {
                 <InvitationRow
                   invitation={inv}
                   canManage={canManageWorkspace}
+                  onCopyLink={() => copyInvitationLink(inv.invite_url)}
                   onRevoke={() => handleRevokeInvitation(inv)}
                   busy={invitationActionId === inv.id}
                 />

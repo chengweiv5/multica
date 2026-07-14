@@ -2,8 +2,10 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -28,15 +30,17 @@ type InvitationResponse struct {
 	CreatedAt     string  `json:"created_at"`
 	UpdatedAt     string  `json:"updated_at"`
 	ExpiresAt     string  `json:"expires_at"`
+	InviteURL     string  `json:"invite_url"`
 	// Enriched fields (present in list responses).
 	InviterName   string `json:"inviter_name,omitempty"`
 	InviterEmail  string `json:"inviter_email,omitempty"`
 	WorkspaceName string `json:"workspace_name,omitempty"`
 }
 
-func invitationToResponse(inv db.WorkspaceInvitation) InvitationResponse {
+func (h *Handler) invitationToResponse(inv db.WorkspaceInvitation) InvitationResponse {
+	id := uuidToString(inv.ID)
 	return InvitationResponse{
-		ID:            uuidToString(inv.ID),
+		ID:            id,
 		WorkspaceID:   uuidToString(inv.WorkspaceID),
 		InviterID:     uuidToString(inv.InviterID),
 		InviteeEmail:  inv.InviteeEmail,
@@ -46,7 +50,19 @@ func invitationToResponse(inv db.WorkspaceInvitation) InvitationResponse {
 		CreatedAt:     timestampToString(inv.CreatedAt),
 		UpdatedAt:     timestampToString(inv.UpdatedAt),
 		ExpiresAt:     timestampToString(inv.ExpiresAt),
+		InviteURL:     h.invitationURL(id),
 	}
+}
+
+func (h *Handler) invitationURL(invitationID string) string {
+	appURL := normalizePublicURL(os.Getenv("MULTICA_APP_URL"))
+	if appURL == "" {
+		appURL = normalizePublicURL(os.Getenv("FRONTEND_ORIGIN"))
+	}
+	if appURL == "" {
+		return fmt.Sprintf("/invite/%s", invitationID)
+	}
+	return fmt.Sprintf("%s/invite/%s", appURL, invitationID)
 }
 
 // ---------------------------------------------------------------------------
@@ -143,7 +159,7 @@ func (h *Handler) CreateInvitation(w http.ResponseWriter, r *http.Request) {
 
 	slog.Info("invitation created", append(logger.RequestAttrs(r), "invitation_id", uuidToString(inv.ID), "workspace_id", workspaceID, "email", email, "role", role)...)
 
-	resp := invitationToResponse(inv)
+	resp := h.invitationToResponse(inv)
 
 	// Notify the invitee in real time if they are a registered user.
 	userID := requestUserID(r)
@@ -199,20 +215,20 @@ func (h *Handler) ListWorkspaceInvitations(w http.ResponseWriter, r *http.Reques
 
 	resp := make([]InvitationResponse, len(rows))
 	for i, row := range rows {
-		resp[i] = InvitationResponse{
-			ID:            uuidToString(row.ID),
-			WorkspaceID:   uuidToString(row.WorkspaceID),
-			InviterID:     uuidToString(row.InviterID),
+		resp[i] = h.invitationToResponse(db.WorkspaceInvitation{
+			ID:            row.ID,
+			WorkspaceID:   row.WorkspaceID,
+			InviterID:     row.InviterID,
 			InviteeEmail:  row.InviteeEmail,
-			InviteeUserID: uuidToPtr(row.InviteeUserID),
+			InviteeUserID: row.InviteeUserID,
 			Role:          row.Role,
 			Status:        row.Status,
-			CreatedAt:     timestampToString(row.CreatedAt),
-			UpdatedAt:     timestampToString(row.UpdatedAt),
-			ExpiresAt:     timestampToString(row.ExpiresAt),
-			InviterName:   row.InviterName,
-			InviterEmail:  row.InviterEmail,
-		}
+			CreatedAt:     row.CreatedAt,
+			UpdatedAt:     row.UpdatedAt,
+			ExpiresAt:     row.ExpiresAt,
+		})
+		resp[i].InviterName = row.InviterName
+		resp[i].InviterEmail = row.InviterEmail
 	}
 
 	writeJSON(w, http.StatusOK, resp)
@@ -291,7 +307,7 @@ func (h *Handler) GetMyInvitation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := invitationToResponse(inv)
+	resp := h.invitationToResponse(inv)
 
 	// Enrich with workspace name and inviter name.
 	if ws, err := h.Queries.GetWorkspace(r.Context(), inv.WorkspaceID); err == nil {
@@ -333,21 +349,21 @@ func (h *Handler) ListMyInvitations(w http.ResponseWriter, r *http.Request) {
 
 	resp := make([]InvitationResponse, len(rows))
 	for i, row := range rows {
-		resp[i] = InvitationResponse{
-			ID:            uuidToString(row.ID),
-			WorkspaceID:   uuidToString(row.WorkspaceID),
-			InviterID:     uuidToString(row.InviterID),
+		resp[i] = h.invitationToResponse(db.WorkspaceInvitation{
+			ID:            row.ID,
+			WorkspaceID:   row.WorkspaceID,
+			InviterID:     row.InviterID,
 			InviteeEmail:  row.InviteeEmail,
-			InviteeUserID: uuidToPtr(row.InviteeUserID),
+			InviteeUserID: row.InviteeUserID,
 			Role:          row.Role,
 			Status:        row.Status,
-			CreatedAt:     timestampToString(row.CreatedAt),
-			UpdatedAt:     timestampToString(row.UpdatedAt),
-			ExpiresAt:     timestampToString(row.ExpiresAt),
-			WorkspaceName: row.WorkspaceName,
-			InviterName:   row.InviterName,
-			InviterEmail:  row.InviterEmail,
-		}
+			CreatedAt:     row.CreatedAt,
+			UpdatedAt:     row.UpdatedAt,
+			ExpiresAt:     row.ExpiresAt,
+		})
+		resp[i].WorkspaceName = row.WorkspaceName
+		resp[i].InviterName = row.InviterName
+		resp[i].InviterEmail = row.InviterEmail
 	}
 
 	writeJSON(w, http.StatusOK, resp)

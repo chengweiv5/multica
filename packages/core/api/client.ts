@@ -233,6 +233,10 @@ import {
   EMPTY_LABEL,
   EMPTY_LIST_LABELS_RESPONSE,
   EMPTY_RESOURCE_LABELS_RESPONSE,
+  InvitationSchema,
+  InvitationListSchema,
+  EMPTY_INVITATION,
+  EMPTY_INVITATION_LIST,
 } from "./schemas";
 
 /** Identifies the calling client to the server.
@@ -1621,9 +1625,12 @@ export class ApiClient {
   }
 
   async createMember(workspaceId: string, data: CreateMemberRequest): Promise<Invitation> {
-    return this.fetch(`/api/workspaces/${workspaceId}/members`, {
+    const raw = await this.fetch<unknown>(`/api/workspaces/${workspaceId}/members`, {
       method: "POST",
       body: JSON.stringify(data),
+    });
+    return parseWithFallback(raw, InvitationSchema, EMPTY_INVITATION, {
+      endpoint: `POST /api/workspaces/${workspaceId}/members`,
     });
   }
 
@@ -1648,7 +1655,10 @@ export class ApiClient {
 
   // Invitations
   async listWorkspaceInvitations(workspaceId: string): Promise<Invitation[]> {
-    return this.fetch(`/api/workspaces/${workspaceId}/invitations`);
+    const raw = await this.fetch<unknown>(`/api/workspaces/${workspaceId}/invitations`);
+    return parseWithFallback(raw, InvitationListSchema, EMPTY_INVITATION_LIST, {
+      endpoint: `GET /api/workspaces/${workspaceId}/invitations`,
+    });
   }
 
   async revokeInvitation(workspaceId: string, invitationId: string): Promise<void> {
@@ -1658,11 +1668,17 @@ export class ApiClient {
   }
 
   async listMyInvitations(): Promise<Invitation[]> {
-    return this.fetch("/api/invitations");
+    const raw = await this.fetch<unknown>("/api/invitations");
+    return parseWithFallback(raw, InvitationListSchema, EMPTY_INVITATION_LIST, {
+      endpoint: "GET /api/invitations",
+    });
   }
 
   async getInvitation(invitationId: string): Promise<Invitation> {
-    return this.fetch(`/api/invitations/${invitationId}`);
+    const raw = await this.fetch<unknown>(`/api/invitations/${invitationId}`);
+    return parseWithFallback(raw, InvitationSchema, EMPTY_INVITATION, {
+      endpoint: `GET /api/invitations/${invitationId}`,
+    });
   }
 
   async acceptInvitation(invitationId: string): Promise<MemberWithUser> {

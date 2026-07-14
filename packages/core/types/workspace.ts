@@ -85,6 +85,7 @@ export interface Invitation {
   created_at: string;
   updated_at: string;
   expires_at: string;
+  invite_url: string;
   inviter_name?: string;
   inviter_email?: string;
   workspace_name?: string;

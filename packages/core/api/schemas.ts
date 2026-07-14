@@ -28,6 +28,7 @@ import type {
   TimelineEntry,
   User,
   WebhookDelivery,
+  Invitation,
 } from "../types";
 import type { CloudRuntimeNode } from "../runtimes/cloud-runtime";
 import type { CreateFeedbackResponse } from "../feedback/types";
@@ -1058,6 +1059,47 @@ export const EMPTY_USER: User = {
   created_at: "",
   updated_at: "",
 };
+
+// Workspace invitations are rendered in Settings → Members and the invite
+// acceptance surfaces. Keep the invite_url default relative so older backends
+// still expose a copyable link when the id is present.
+export const InvitationSchema = z.object({
+  id: z.string(),
+  workspace_id: z.string(),
+  inviter_id: z.string(),
+  invitee_email: z.string(),
+  invitee_user_id: z.string().nullable().default(null),
+  role: z.string().default("member"),
+  status: z.string().default("pending"),
+  created_at: z.string().default(""),
+  updated_at: z.string().default(""),
+  expires_at: z.string().default(""),
+  invite_url: z.string().optional(),
+  inviter_name: z.string().optional(),
+  inviter_email: z.string().optional(),
+  workspace_name: z.string().optional(),
+}).loose().transform((inv) => ({
+  ...inv,
+  invite_url: inv.invite_url || `/invite/${inv.id}`,
+}));
+
+export const InvitationListSchema = z.array(InvitationSchema);
+
+export const EMPTY_INVITATION: Invitation = {
+  id: "",
+  workspace_id: "",
+  inviter_id: "",
+  invitee_email: "",
+  invitee_user_id: null,
+  role: "member",
+  status: "pending",
+  created_at: "",
+  updated_at: "",
+  expires_at: "",
+  invite_url: "",
+};
+
+export const EMPTY_INVITATION_LIST: Invitation[] = [];
 
 // ---------------------------------------------------------------------------
 // Cross-workspace unread inbox summary (`/api/inbox/unread-summary` GET).
