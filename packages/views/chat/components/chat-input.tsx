@@ -167,7 +167,7 @@ export function ChatInput({
   // peeking at the editor on every render) so the SubmitButton visibly
   // disables the instant an upload starts and re-enables the instant it
   // finishes. handleSend ALSO checks `hasActiveUploads()` for paths that
-  // bypass the button (Mod+Enter while paste is mid-stream, drag-drop
+  // bypass the button (keyboard submit while paste is mid-stream, drag-drop
   // racing the keyboard) — defense in depth.
   const [pendingUploads, setPendingUploads] = useState(0);
 
@@ -273,7 +273,7 @@ export function ChatInput({
     // resolves later) and the attachment would only end up bound to the
     // session, not the message — the agent then can't `multica attachment
     // download <id>` the file. The SubmitButton is also disabled in this
-    // state via `uploading`, but Mod+Enter bypasses the button so we
+    // state via `uploading`, but keyboard submit bypasses the button so we
     // still gate here.
     if (editorRef.current?.hasActiveUploads()) {
       logger.debug("input.send skipped: uploads in flight");

@@ -1443,7 +1443,7 @@ export function createEnDict(allowSignup: boolean): LandingDict {
         ],
         improvements: [
           "Daemon self-heals when a runtime is deleted server-side — no more zombie local entries",
-          "Chat and comment composer share the same `Mod+Enter` send shortcut",
+          "Chat and comment composer share the same `Enter` send shortcut by default",
           "Copilot CLI model catalog expanded with correct dotted IDs",
           "Copilot failure details now surface in the UI instead of a generic error",
           "Daemon brief is inlined into the system prompt for providers that need it",

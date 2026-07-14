@@ -76,7 +76,7 @@ export const SHORTCUT_ACTIONS: readonly ShortcutActionDefinition[] = [
   { id: "createIssue", category: "general", defaultShortcut: createShortcutChord("C"), allowInEditable: false },
   { id: "toggleSidebar", category: "general", defaultShortcut: primary("B"), allowInEditable: false },
   { id: "findInIssue", category: "general", defaultShortcut: primary("F"), allowInEditable: true },
-  { id: "send", category: "general", defaultShortcut: primary("Enter"), allowInEditable: true },
+  { id: "send", category: "general", defaultShortcut: createShortcutChord("Enter"), allowInEditable: true },
   { id: "goInbox", category: "navigation", defaultShortcut: null, allowInEditable: false },
   { id: "goChat", category: "navigation", defaultShortcut: null, allowInEditable: false },
   { id: "goMyIssues", category: "navigation", defaultShortcut: null, allowInEditable: false },

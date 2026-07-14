@@ -94,7 +94,7 @@ describe("KeyboardShortcutsTab", () => {
     fireEvent.click(sendRecorder);
     fireEvent.keyDown(sendRecorder, { key: "Enter", shiftKey: true });
     expect(getShortcut("send")).toEqual(
-      createShortcutChord("Enter", { primary: true }),
+      createShortcutChord("Enter"),
     );
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Send can only use Enter or Mod+Enter.",

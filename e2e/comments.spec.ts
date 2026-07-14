@@ -38,7 +38,7 @@ test.describe("Comments", () => {
     await editor.click({ force: true });
     await editor.fill(commentText);
 
-    await page.keyboard.press("ControlOrMeta+Enter");
+    await page.keyboard.press("Enter");
 
     // Comment should appear in the activity section
     await expect(page.locator(`text=${commentText}`)).toBeVisible({

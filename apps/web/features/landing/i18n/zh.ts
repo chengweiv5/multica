@@ -1442,7 +1442,7 @@ export function createZhDict(allowSignup: boolean): LandingDict {
         ],
         improvements: [
           "服务端删除 runtime 时，daemon 端自我修复，不再留下僵尸条目",
-          "Chat 与评论输入框统一使用 `Mod+Enter` 发送",
+          "Chat 与评论输入框默认统一使用 `Enter` 发送",
           "Copilot CLI 模型目录补齐正确的 dotted ID",
           "Copilot 失败详情直接在 UI 中透出，不再只是一个通用错误",
           "Daemon brief 直接内联进 system prompt，针对需要的 provider 生效",

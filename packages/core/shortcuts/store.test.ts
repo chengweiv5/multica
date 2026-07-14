@@ -20,7 +20,7 @@ describe("shortcut store", () => {
       createShortcutChord("K", { primary: true }),
     );
     expect(getShortcut("send")).toEqual(
-      createShortcutChord("Enter", { primary: true }),
+      createShortcutChord("Enter"),
     );
 
     const custom = createShortcutChord("J", { primary: true });
@@ -58,7 +58,7 @@ describe("shortcut store", () => {
       createShortcutChord("Enter", { primary: true, shift: true }),
     );
     expect(getShortcut("send")).toEqual(
-      createShortcutChord("Enter", { primary: true }),
+      createShortcutChord("Enter"),
     );
   });
 
