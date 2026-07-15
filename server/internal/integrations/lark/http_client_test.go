@@ -439,6 +439,37 @@ func TestHTTPClient_SendTextMessage_HappyPath(t *testing.T) {
 	}
 }
 
+func TestHTTPClient_SendTextMessageToOpenID(t *testing.T) {
+	fake := newLarkFake(t)
+	fake.stubToken("tok_direct", 7200)
+	fake.stubSend(
+		map[string]any{
+			"code": 0,
+			"msg":  "ok",
+			"data": map[string]string{"message_id": "om_direct_1"},
+		},
+		func(r *http.Request, body map[string]string) {
+			if got := r.URL.Query().Get("receive_id_type"); got != "open_id" {
+				t.Errorf("receive_id_type: got %q want open_id", got)
+			}
+			if body["receive_id"] != "ou_user_42" {
+				t.Errorf("receive_id: got %q want ou_user_42", body["receive_id"])
+			}
+		},
+	)
+
+	c := newTestClient(fake, time.Now)
+	_, err := c.SendTextMessage(context.Background(), SendTextParams{
+		InstallationID: testCreds(),
+		ChatID:         ChatID("ou_user_42"),
+		ReceiveIDType:  "open_id",
+		Text:           "Your verification code is 123456",
+	})
+	if err != nil {
+		t.Fatalf("send: %v", err)
+	}
+}
+
 // TestHTTPClient_SendTextMessage_ReplyInThread pins the wire shape of a
 // threaded reply: when ReplyTarget is set the client must POST to the
 // reply endpoint (/messages/<id>/reply), carry reply_in_thread=true, and

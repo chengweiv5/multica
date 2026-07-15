@@ -237,7 +237,7 @@ func (c *httpAPIClient) invalidateToken(appID string) {
 // goes to the chat-level send endpoint keyed by receive_id=chat_id, the
 // historical behavior. Body is map[string]any (not map[string]string)
 // because reply_in_thread is a bool.
-func outboundMessageRequest(chatID ChatID, msgType, content string, target ReplyTarget) (string, map[string]any) {
+func outboundMessageRequest(chatID ChatID, receiveIDType, msgType, content string, target ReplyTarget) (string, map[string]any) {
 	if target.IsSet() {
 		return "/open-apis/im/v1/messages/" + url.PathEscape(target.MessageID) + "/reply", map[string]any{
 			"msg_type":        msgType,
@@ -245,8 +245,11 @@ func outboundMessageRequest(chatID ChatID, msgType, content string, target Reply
 			"reply_in_thread": target.InThread,
 		}
 	}
+	if receiveIDType == "" {
+		receiveIDType = "chat_id"
+	}
 	q := url.Values{}
-	q.Set("receive_id_type", "chat_id")
+	q.Set("receive_id_type", receiveIDType)
 	return "/open-apis/im/v1/messages?" + q.Encode(), map[string]any{
 		"receive_id": string(chatID),
 		"msg_type":   msgType,
@@ -268,7 +271,7 @@ func (c *httpAPIClient) SendInteractiveCard(ctx context.Context, p SendCardParam
 	if err != nil {
 		return "", err
 	}
-	path, body := outboundMessageRequest(p.ChatID, "interactive", p.CardJSON, p.ReplyTarget)
+	path, body := outboundMessageRequest(p.ChatID, "chat_id", "interactive", p.CardJSON, p.ReplyTarget)
 	var resp struct {
 		Code int    `json:"code"`
 		Msg  string `json:"msg"`
@@ -312,7 +315,7 @@ func (c *httpAPIClient) SendTextMessage(ctx context.Context, p SendTextParams) (
 	if err != nil {
 		return "", fmt.Errorf("lark http client: encode text content: %w", err)
 	}
-	path, body := outboundMessageRequest(p.ChatID, "text", string(contentBytes), p.ReplyTarget)
+	path, body := outboundMessageRequest(p.ChatID, p.ReceiveIDType, "text", string(contentBytes), p.ReplyTarget)
 	var resp struct {
 		Code int    `json:"code"`
 		Msg  string `json:"msg"`
@@ -375,7 +378,7 @@ func (c *httpAPIClient) SendMarkdownCard(ctx context.Context, p SendMarkdownCard
 	if err != nil {
 		return "", fmt.Errorf("lark http client: encode markdown card: %w", err)
 	}
-	path, body := outboundMessageRequest(p.ChatID, "interactive", string(cardBytes), p.ReplyTarget)
+	path, body := outboundMessageRequest(p.ChatID, "chat_id", "interactive", string(cardBytes), p.ReplyTarget)
 	var resp struct {
 		Code int    `json:"code"`
 		Msg  string `json:"msg"`

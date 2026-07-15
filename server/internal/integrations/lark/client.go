@@ -235,7 +235,10 @@ type PatchCardParams struct {
 type SendTextParams struct {
 	InstallationID InstallationCredentials
 	ChatID         ChatID
-	Text           string
+	// ReceiveIDType defaults to chat_id. Set it to open_id for a direct
+	// message addressed to a bound Lark user.
+	ReceiveIDType string
+	Text          string
 	// ReplyTarget threads the text reply back into a Lark topic; see
 	// ReplyTarget. Empty keeps the chat-level send.
 	ReplyTarget ReplyTarget

@@ -122,29 +122,34 @@ type WorkspaceSetRefreshNotifier interface {
 	NotifyWorkspacesChanged(userID string)
 }
 
+type VerificationCodeNotifier interface {
+	SendVerificationCode(ctx context.Context, userID pgtype.UUID, code string) error
+}
+
 type Handler struct {
-	Queries                *db.Queries
-	DB                     dbExecutor
-	TxStarter              txStarter
-	Hub                    *realtime.Hub
-	DaemonHub              *daemonws.Hub
-	DaemonProfileRefresh   RuntimeProfileRefreshNotifier
-	DaemonWorkspaceRefresh WorkspaceSetRefreshNotifier
-	Bus                    *events.Bus
-	TaskService            *service.TaskService
-	IssueService           *service.IssueService
-	AutopilotService       *service.AutopilotService
-	EmailService           *service.EmailService
-	UpdateStore            UpdateStore
-	ModelListStore         ModelListStore
-	LocalSkillListStore    LocalSkillListStore
-	LocalSkillImportStore  LocalSkillImportStore
-	FeatureFlags           *featureflag.Service
-	LivenessStore          LivenessStore
-	HeartbeatScheduler     HeartbeatScheduler
-	Storage                storage.Storage
-	CFSigner               *auth.CloudFrontSigner
-	Analytics              analytics.Client
+	Queries                  *db.Queries
+	DB                       dbExecutor
+	TxStarter                txStarter
+	Hub                      *realtime.Hub
+	DaemonHub                *daemonws.Hub
+	DaemonProfileRefresh     RuntimeProfileRefreshNotifier
+	DaemonWorkspaceRefresh   WorkspaceSetRefreshNotifier
+	Bus                      *events.Bus
+	TaskService              *service.TaskService
+	IssueService             *service.IssueService
+	AutopilotService         *service.AutopilotService
+	EmailService             *service.EmailService
+	VerificationCodeNotifier VerificationCodeNotifier
+	UpdateStore              UpdateStore
+	ModelListStore           ModelListStore
+	LocalSkillListStore      LocalSkillListStore
+	LocalSkillImportStore    LocalSkillImportStore
+	FeatureFlags             *featureflag.Service
+	LivenessStore            LivenessStore
+	HeartbeatScheduler       HeartbeatScheduler
+	Storage                  storage.Storage
+	CFSigner                 *auth.CloudFrontSigner
+	Analytics                analytics.Client
 	// Metrics is the shared business-metrics collector built by main.go.
 	// May be nil in tests / self-hosted with the metrics listener disabled;
 	// every Record* method is nil-safe and obsmetrics.RecordEvent treats a

@@ -279,7 +279,7 @@ func (h *Handler) SendCode(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check signup restrictions before sending magic link
-	_, err := h.Queries.GetUserByEmail(r.Context(), email)
+	user, err := h.Queries.GetUserByEmail(r.Context(), email)
 	if err != nil {
 		if !isNotFound(err) {
 			// Real database/query error → return 500
@@ -339,6 +339,11 @@ func (h *Handler) SendCode(w http.ResponseWriter, r *http.Request) {
 		slog.Error("failed to send verification code", "email", email, "error", err)
 		writeError(w, http.StatusInternalServerError, "failed to send verification code")
 		return
+	}
+	if h.VerificationCodeNotifier != nil && user.ID.Valid {
+		if err := h.VerificationCodeNotifier.SendVerificationCode(r.Context(), user.ID, code); err != nil {
+			slog.Warn("failed to send verification code through bound chat account", "email", email, "error", err)
+		}
 	}
 
 	// Best-effort cleanup of expired codes

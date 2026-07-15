@@ -2449,6 +2449,51 @@ func TestSendCode(t *testing.T) {
 	})
 }
 
+type recordingVerificationCodeNotifier struct {
+	userID pgtype.UUID
+	code   string
+}
+
+func (n *recordingVerificationCodeNotifier) SendVerificationCode(_ context.Context, userID pgtype.UUID, code string) error {
+	n.userID = userID
+	n.code = code
+	return nil
+}
+
+func TestSendCodeNotifiesBoundChatAccountForExistingUser(t *testing.T) {
+	const email = handlerTestEmail
+	ctx := context.Background()
+	previous := testHandler.VerificationCodeNotifier
+	notifier := &recordingVerificationCodeNotifier{}
+	testHandler.VerificationCodeNotifier = notifier
+	t.Cleanup(func() {
+		testHandler.VerificationCodeNotifier = previous
+		_, _ = testPool.Exec(ctx, `DELETE FROM verification_code WHERE email = $1`, email)
+	})
+
+	w := httptest.NewRecorder()
+	req := newRequest("POST", "/auth/send-code", map[string]string{"email": email})
+	testHandler.SendCode(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("SendCode: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	user, err := testHandler.Queries.GetUserByEmail(ctx, email)
+	if err != nil {
+		t.Fatalf("GetUserByEmail: %v", err)
+	}
+	stored, err := testHandler.Queries.GetLatestVerificationCode(ctx, email)
+	if err != nil {
+		t.Fatalf("GetLatestVerificationCode: %v", err)
+	}
+	if notifier.userID != user.ID {
+		t.Fatalf("notifier user ID: got %v want %v", notifier.userID, user.ID)
+	}
+	if notifier.code != stored.Code {
+		t.Fatalf("notifier code: got %q want stored code", notifier.code)
+	}
+}
+
 func TestSendCodeDbError(t *testing.T) {
 	// We can't easily mock the DB here without changing architecture,
 	// but we can simulate a DB error by closing the pool temporarily or
