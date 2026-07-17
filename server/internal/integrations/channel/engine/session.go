@@ -351,7 +351,7 @@ func (s *ChatSession) AppendUserMessage(ctx context.Context, in AppendInput) (Ap
 	if err := tx.Commit(ctx); err != nil {
 		return AppendResult{}, fmt.Errorf("commit: %w", err)
 	}
-	return AppendResult{IssueCommand: cmd, DedupMarked: markedInTx}, nil
+	return AppendResult{MessageID: message.ID, IssueCommand: cmd, DedupMarked: markedInTx}, nil
 }
 
 func isUniqueViolation(err error) bool {
