@@ -7,6 +7,9 @@ ARG NO_PROXY=localhost,127.0.0.1,.byted.org,hub.byted.org
 ARG http_proxy=${HTTP_PROXY}
 ARG https_proxy=${HTTPS_PROXY}
 ARG no_proxy=${NO_PROXY}
+ENV GOPROXY=https://goproxy.byted.org|https://goproxy.cn|direct
+ENV GOPRIVATE=*.byted.org,*.everphoto.cn,git.smartisan.com
+ENV GONOSUMDB=*.byted.org,*.everphoto.cn,git.smartisan.com
 
 RUN apk add --no-cache git
 
