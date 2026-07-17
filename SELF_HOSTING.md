@@ -82,6 +82,8 @@ Once ready:
 - **Frontend:** http://localhost:3000
 - **Backend API:** http://localhost:8080
 
+By default, Docker Compose publishes the frontend and backend only on `127.0.0.1`. For trusted LAN-only testing you can set `MULTICA_BIND_ADDRESS=0.0.0.0` in `.env` and restart the stack. For public deployments, keep the default and put a TLS-terminating reverse proxy in front of the stack.
+
 > **Note:** If you prefer to run the Docker Compose steps manually, see [Manual Docker Compose Setup](#manual-docker-compose-setup) below.
 
 ### Step 2 — Log In
