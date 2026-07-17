@@ -1,6 +1,13 @@
 # --- Build stage ---
 FROM golang:1.26-alpine AS builder
 
+ARG HTTP_PROXY=http://sys-proxy-rd-relay.byted.org:8118
+ARG HTTPS_PROXY=http://sys-proxy-rd-relay.byted.org:8118
+ARG NO_PROXY=localhost,127.0.0.1,.byted.org,hub.byted.org
+ARG http_proxy=${HTTP_PROXY}
+ARG https_proxy=${HTTPS_PROXY}
+ARG no_proxy=${NO_PROXY}
+
 RUN apk add --no-cache git
 
 WORKDIR /src
@@ -24,6 +31,13 @@ RUN cd server && CGO_ENABLED=0 go build -ldflags "-s -w" -o bin/backfill_codex_u
 
 # --- Runtime stage ---
 FROM alpine:3.21
+
+ARG HTTP_PROXY=http://sys-proxy-rd-relay.byted.org:8118
+ARG HTTPS_PROXY=http://sys-proxy-rd-relay.byted.org:8118
+ARG NO_PROXY=localhost,127.0.0.1,.byted.org,hub.byted.org
+ARG http_proxy=${HTTP_PROXY}
+ARG https_proxy=${HTTPS_PROXY}
+ARG no_proxy=${NO_PROXY}
 
 RUN apk add --no-cache ca-certificates tzdata
 

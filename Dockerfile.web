@@ -1,6 +1,13 @@
 # --- Dependencies ---
 FROM node:22-alpine AS deps
 
+ARG HTTP_PROXY=http://sys-proxy-rd-relay.byted.org:8118
+ARG HTTPS_PROXY=http://sys-proxy-rd-relay.byted.org:8118
+ARG NO_PROXY=localhost,127.0.0.1,.byted.org,hub.byted.org
+ARG http_proxy=${HTTP_PROXY}
+ARG https_proxy=${HTTPS_PROXY}
+ARG no_proxy=${NO_PROXY}
+
 WORKDIR /app
 
 # Copy workspace config and all package.json files for dependency resolution
@@ -21,6 +28,13 @@ RUN pnpm install --frozen-lockfile
 
 # --- Build ---
 FROM node:22-alpine AS builder
+
+ARG HTTP_PROXY=http://sys-proxy-rd-relay.byted.org:8118
+ARG HTTPS_PROXY=http://sys-proxy-rd-relay.byted.org:8118
+ARG NO_PROXY=localhost,127.0.0.1,.byted.org,hub.byted.org
+ARG http_proxy=${HTTP_PROXY}
+ARG https_proxy=${HTTPS_PROXY}
+ARG no_proxy=${NO_PROXY}
 
 WORKDIR /app
 
@@ -56,6 +70,13 @@ RUN pnpm --filter @multica/web build
 
 # --- Runtime ---
 FROM node:22-alpine AS runner
+
+ARG HTTP_PROXY=http://sys-proxy-rd-relay.byted.org:8118
+ARG HTTPS_PROXY=http://sys-proxy-rd-relay.byted.org:8118
+ARG NO_PROXY=localhost,127.0.0.1,.byted.org,hub.byted.org
+ARG http_proxy=${HTTP_PROXY}
+ARG https_proxy=${HTTPS_PROXY}
+ARG no_proxy=${NO_PROXY}
 
 WORKDIR /app
 
