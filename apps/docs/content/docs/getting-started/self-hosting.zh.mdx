@@ -296,6 +296,7 @@ The `Secure` flag on session cookies is derived automatically from the scheme of
 |----------|---------|-------------|
 | `PORT` | `8080` | Backend server port |
 | `FRONTEND_PORT` | `3000` | Frontend port |
+| `MULTICA_BIND_ADDRESS` | `127.0.0.1` | Docker self-host bind address for published frontend/backend ports. Use `0.0.0.0` only for trusted LAN testing; prefer a reverse proxy for public deployments |
 | `CORS_ALLOWED_ORIGINS` | Value of `FRONTEND_ORIGIN` | Comma-separated list of allowed origins |
 | `LOG_LEVEL` | `info` | Log level: `debug`, `info`, `warn`, `error` |
 
