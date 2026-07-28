@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/multica-ai/multica/server/internal/attribution"
 	"github.com/multica-ai/multica/server/internal/events"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 	"github.com/multica-ai/multica/server/pkg/protocol"
@@ -297,6 +298,12 @@ func (p *Patcher) processEvent(ctx context.Context, e events.Event) error {
 		return fmt.Errorf("lookup chat session binding: %w", err)
 	}
 
+	if deliver, err := p.shouldDeliverToLark(ctx, taskID, chatSessionID); err != nil {
+		return err
+	} else if !deliver {
+		return nil
+	}
+
 	inst, err := p.queries.GetLarkInstallation(ctx, binding.InstallationID)
 	if err != nil {
 		return fmt.Errorf("load installation: %w", err)
@@ -330,6 +337,17 @@ func (p *Patcher) processEvent(ctx context.Context, e events.Event) error {
 		return p.fail(ctx, creds, binding, taskID, agentName, e.Payload)
 	}
 	return nil
+}
+
+func (p *Patcher) shouldDeliverToLark(ctx context.Context, taskID, chatSessionID pgtype.UUID) (bool, error) {
+	task, err := p.queries.GetAgentTask(ctx, taskID)
+	if err != nil {
+		return false, fmt.Errorf("load agent task: %w", err)
+	}
+	if !task.ChatInputTaskID.Valid {
+		return true, nil
+	}
+	return task.TriggerEvidenceKind.Valid && task.TriggerEvidenceKind.String == string(attribution.EvidenceChannelChat), nil
 }
 
 // sendChatReply turns ChatDonePayload.Content into a Lark message.

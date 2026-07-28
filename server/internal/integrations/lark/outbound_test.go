@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/multica-ai/multica/server/internal/attribution"
 	"github.com/multica-ai/multica/server/internal/events"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 	"github.com/multica-ai/multica/server/pkg/protocol"
@@ -18,6 +19,8 @@ import (
 
 type fakePatcherQueries struct {
 	mu              sync.Mutex
+	task            db.AgentTaskQueue
+	taskErr         error
 	binding         ChatSessionBinding
 	bindingErr      error
 	installation    Installation
@@ -32,7 +35,7 @@ type fakePatcherQueries struct {
 }
 
 func (f *fakePatcherQueries) GetAgentTask(ctx context.Context, id pgtype.UUID) (db.AgentTaskQueue, error) {
-	return db.AgentTaskQueue{}, nil
+	return f.task, f.taskErr
 }
 func (f *fakePatcherQueries) GetChatSession(ctx context.Context, id pgtype.UUID) (db.ChatSession, error) {
 	return db.ChatSession{}, nil
@@ -69,19 +72,21 @@ func (f fakeCredentials) DecryptAppSecret(inst Installation) (string, error) {
 }
 
 type fakeAPIClient struct {
-	mu             sync.Mutex
-	sent           []SendCardParams
-	patched        []PatchCardParams
-	textSent       []SendTextParams
-	mdCardSent     []SendMarkdownCardParams
-	sendReturn     string
-	sendErr        error
-	patchErr       error
-	textSendErr    error
-	textSendReturn string
-	mdCardErr      error
-	mdCardReturn   string
-	bindingSent    []BindingPromptParams
+	mu               sync.Mutex
+	sent             []SendCardParams
+	patched          []PatchCardParams
+	textSent         []SendTextParams
+	mdCardSent       []SendMarkdownCardParams
+	sendReturn       string
+	sendErr          error
+	patchErr         error
+	textSendErr      error
+	textSendReturn   string
+	mdCardErr        error
+	mdCardReturn     string
+	bindingSent      []BindingPromptParams
+	addedReactions   []AddReactionParams
+	deletedReactions []DeleteReactionParams
 	// threadReplyErr, when non-nil, is returned by the three send
 	// methods whenever the call carries a thread ReplyTarget, while the
 	// attempt is still recorded. Tests inject either a classified
@@ -153,9 +158,15 @@ func (f *fakeAPIClient) BatchGetUsers(ctx context.Context, creds InstallationCre
 	return nil, nil
 }
 func (f *fakeAPIClient) AddMessageReaction(ctx context.Context, p AddReactionParams) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.addedReactions = append(f.addedReactions, p)
 	return "fake-reaction-id", nil
 }
 func (f *fakeAPIClient) DeleteMessageReaction(ctx context.Context, p DeleteReactionParams) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.deletedReactions = append(f.deletedReactions, p)
 	return nil
 }
 
@@ -184,6 +195,44 @@ func newTestPatcher(t *testing.T) (*Patcher, *fakePatcherQueries, *fakeAPIClient
 		Now:    time.Now,
 	})
 	return p, q, api
+}
+
+func TestPatcherDeliversTaskOwnedChannelReply(t *testing.T) {
+	p, q, api := newTestPatcher(t)
+	taskID := uuidFromString(t, "ee333333-ee33-ee33-ee33-eeeeeeeeeeee")
+	q.task.ChatInputTaskID = taskID
+	q.task.TriggerEvidenceKind = pgtype.Text{String: string(attribution.EvidenceChannelChat), Valid: true}
+	typing := NewTypingIndicatorManager(api, fakeCredentials{secret: "shh"}, q, newDiscardLogger())
+	typing.mu.Lock()
+	typing.states[uuidString(q.binding.ChatSessionID)] = []*TypingIndicatorState{{MessageID: "om_trigger", ReactionID: "react_typing"}}
+	typing.mu.Unlock()
+	p.SetTypingIndicatorManager(typing)
+
+	p.handleEvent(events.Event{
+		Type:          protocol.EventChatDone,
+		TaskID:        uuidString(taskID),
+		ChatSessionID: uuidString(q.binding.ChatSessionID),
+		Payload: protocol.ChatDonePayload{
+			TaskID:        uuidString(taskID),
+			ChatSessionID: uuidString(q.binding.ChatSessionID),
+			Content:       "导入成功",
+		},
+	})
+
+	api.mu.Lock()
+	defer api.mu.Unlock()
+	if len(api.textSent) != 1 {
+		t.Fatalf("task-owned channel completion must still send one Lark reply; got %d", len(api.textSent))
+	}
+	if api.textSent[0].Text != "导入成功" {
+		t.Errorf("text mismatch: got %q", api.textSent[0].Text)
+	}
+	if len(api.deletedReactions) != 1 {
+		t.Fatalf("typing reaction should be cleared before channel reply; got %d deletes", len(api.deletedReactions))
+	}
+	if api.deletedReactions[0].ReactionID != "react_typing" {
+		t.Errorf("deleted reaction = %q, want react_typing", api.deletedReactions[0].ReactionID)
+	}
 }
 
 // TestPatcherSendsPlainTextOnChatDone pins the new behaviour Bohan asked

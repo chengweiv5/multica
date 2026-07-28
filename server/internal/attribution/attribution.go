@@ -104,6 +104,10 @@ const (
 	// The dedicated chat_session_id column still exists for its own consumers;
 	// this makes the attribution UI's jump-to-evidence path uniform (MUL-4302 §2).
 	EvidenceChat EvidenceKind = "chat"
+	// EvidenceChannelChat is the channel-originated variant of EvidenceChat. It
+	// still points at the chat_session row, but preserves the external-channel
+	// outbound contract after channel tasks began owning explicit input batches.
+	EvidenceChannelChat EvidenceKind = "channel_chat"
 )
 
 // TriggerKind enumerates every path that can enqueue a run. Kept as an explicit
