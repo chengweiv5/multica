@@ -140,7 +140,17 @@ func (o *Outbound) shouldDeliverToSlack(ctx context.Context, taskID, chatSession
 	if !task.ChatInputTaskID.Valid {
 		return true, nil
 	}
-	return task.TriggerEvidenceKind.Valid && task.TriggerEvidenceKind.String == string(attribution.EvidenceChannelChat), nil
+	if !task.TriggerEvidenceKind.Valid {
+		return false, nil
+	}
+	switch attribution.EvidenceKind(task.TriggerEvidenceKind.String) {
+	case attribution.EvidenceChannelChat:
+		return true, nil
+	case attribution.EvidenceChat:
+		return task.TriggerEvidenceRefID.Valid && task.TriggerEvidenceRefID == chatSessionID, nil
+	default:
+		return false, nil
+	}
 }
 
 // chatDoneTaskID extracts the task id from the event envelope or the typed/map

@@ -109,6 +109,32 @@ func TestOutbound_DeliversTaskOwnedChannelReply(t *testing.T) {
 	}
 }
 
+func TestOutbound_DeliversLegacyTaskOwnedChannelReply(t *testing.T) {
+	q := &fakeOutboundQueries{
+		task: db.AgentTaskQueue{
+			ChatInputTaskID:      uid(2),
+			TriggerEvidenceKind:  pgtype.Text{String: string(attribution.EvidenceChat), Valid: true},
+			TriggerEvidenceRefID: pgtype.UUID{Bytes: [16]byte{15: 1}, Valid: true},
+		},
+		binding: db.ChannelChatSessionBinding{
+			InstallationID: uid(1),
+			ChannelChatID:  "C123",
+			Config:         []byte(`{"channel_id":"C123"}`),
+		},
+		inst: db.ChannelInstallation{ID: uid(1), Status: "active", Config: slackInstallConfigJSON()},
+	}
+	fs := &fakeSender{}
+
+	newTestOutbound(q, fs).handleEvent(chatDoneEvent("00000000-0000-0000-0000-000000000001", "channel reply"))
+
+	if fs.called != 1 {
+		t.Fatalf("sender called %d times, want 1 for a legacy task-owned channel reply", fs.called)
+	}
+	if fs.got.Text != "channel reply" {
+		t.Fatalf("Text = %q, want channel reply", fs.got.Text)
+	}
+}
+
 func TestOutbound_SkipsDirectChatTaskOnBoundSlackSession(t *testing.T) {
 	q := &fakeOutboundQueries{
 		task: db.AgentTaskQueue{ChatInputTaskID: uid(2)},

@@ -235,6 +235,45 @@ func TestPatcherDeliversTaskOwnedChannelReply(t *testing.T) {
 	}
 }
 
+func TestPatcherDeliversLegacyTaskOwnedChannelReply(t *testing.T) {
+	p, q, api := newTestPatcher(t)
+	taskID := uuidFromString(t, "ee333333-ee33-ee33-ee33-eeeeeeeeeeee")
+	q.task.ChatInputTaskID = taskID
+	q.task.TriggerEvidenceKind = pgtype.Text{String: string(attribution.EvidenceChat), Valid: true}
+	q.task.TriggerEvidenceRefID = q.binding.ChatSessionID
+	typing := NewTypingIndicatorManager(api, fakeCredentials{secret: "shh"}, q, newDiscardLogger())
+	typing.mu.Lock()
+	typing.states[uuidString(q.binding.ChatSessionID)] = []*TypingIndicatorState{{MessageID: "om_trigger", ReactionID: "react_typing"}}
+	typing.mu.Unlock()
+	p.SetTypingIndicatorManager(typing)
+
+	p.handleEvent(events.Event{
+		Type:          protocol.EventChatDone,
+		TaskID:        uuidString(taskID),
+		ChatSessionID: uuidString(q.binding.ChatSessionID),
+		Payload: protocol.ChatDonePayload{
+			TaskID:        uuidString(taskID),
+			ChatSessionID: uuidString(q.binding.ChatSessionID),
+			Content:       "导入成功",
+		},
+	})
+
+	api.mu.Lock()
+	defer api.mu.Unlock()
+	if len(api.textSent) != 1 {
+		t.Fatalf("legacy task-owned channel completion must still send one Lark reply; got %d", len(api.textSent))
+	}
+	if api.textSent[0].Text != "导入成功" {
+		t.Errorf("text mismatch: got %q", api.textSent[0].Text)
+	}
+	if len(api.deletedReactions) != 1 {
+		t.Fatalf("typing reaction should be cleared before legacy channel reply; got %d deletes", len(api.deletedReactions))
+	}
+	if api.deletedReactions[0].ReactionID != "react_typing" {
+		t.Errorf("deleted reaction = %q, want react_typing", api.deletedReactions[0].ReactionID)
+	}
+}
+
 // TestPatcherSendsPlainTextOnChatDone pins the new behaviour Bohan asked
 // for: when the agent finishes replying, the Patcher posts the reply as
 // a plain Lark IM text message (msg_type=text), not nested inside an
