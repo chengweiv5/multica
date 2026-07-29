@@ -298,7 +298,7 @@ func (p *Patcher) processEvent(ctx context.Context, e events.Event) error {
 		return fmt.Errorf("lookup chat session binding: %w", err)
 	}
 
-	if deliver, err := p.shouldDeliverToLark(ctx, taskID, chatSessionID); err != nil {
+	if deliver, err := p.shouldDeliverToLark(ctx, taskID); err != nil {
 		return err
 	} else if !deliver {
 		return nil
@@ -339,7 +339,7 @@ func (p *Patcher) processEvent(ctx context.Context, e events.Event) error {
 	return nil
 }
 
-func (p *Patcher) shouldDeliverToLark(ctx context.Context, taskID, chatSessionID pgtype.UUID) (bool, error) {
+func (p *Patcher) shouldDeliverToLark(ctx context.Context, taskID pgtype.UUID) (bool, error) {
 	task, err := p.queries.GetAgentTask(ctx, taskID)
 	if err != nil {
 		return false, fmt.Errorf("load agent task: %w", err)
@@ -347,17 +347,7 @@ func (p *Patcher) shouldDeliverToLark(ctx context.Context, taskID, chatSessionID
 	if !task.ChatInputTaskID.Valid {
 		return true, nil
 	}
-	if !task.TriggerEvidenceKind.Valid {
-		return false, nil
-	}
-	switch attribution.EvidenceKind(task.TriggerEvidenceKind.String) {
-	case attribution.EvidenceChannelChat:
-		return true, nil
-	case attribution.EvidenceChat:
-		return task.TriggerEvidenceRefID.Valid && task.TriggerEvidenceRefID == chatSessionID, nil
-	default:
-		return false, nil
-	}
+	return task.TriggerEvidenceKind.Valid && attribution.EvidenceKind(task.TriggerEvidenceKind.String) == attribution.EvidenceChannelChat, nil
 }
 
 // sendChatReply turns ChatDonePayload.Content into a Lark message.

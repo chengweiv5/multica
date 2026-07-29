@@ -102,7 +102,7 @@ func (o *Outbound) processEvent(ctx context.Context, e events.Event) error {
 	if !ok {
 		return nil
 	}
-	if deliver, err := o.shouldDeliverToSlack(ctx, taskID, sessionID); err != nil {
+	if deliver, err := o.shouldDeliverToSlack(ctx, taskID); err != nil {
 		return err
 	} else if !deliver {
 		return nil
@@ -132,7 +132,7 @@ func (o *Outbound) processEvent(ctx context.Context, e events.Event) error {
 	return nil
 }
 
-func (o *Outbound) shouldDeliverToSlack(ctx context.Context, taskID, chatSessionID pgtype.UUID) (bool, error) {
+func (o *Outbound) shouldDeliverToSlack(ctx context.Context, taskID pgtype.UUID) (bool, error) {
 	task, err := o.q.GetAgentTask(ctx, taskID)
 	if err != nil {
 		return false, fmt.Errorf("load agent task: %w", err)
@@ -140,17 +140,7 @@ func (o *Outbound) shouldDeliverToSlack(ctx context.Context, taskID, chatSession
 	if !task.ChatInputTaskID.Valid {
 		return true, nil
 	}
-	if !task.TriggerEvidenceKind.Valid {
-		return false, nil
-	}
-	switch attribution.EvidenceKind(task.TriggerEvidenceKind.String) {
-	case attribution.EvidenceChannelChat:
-		return true, nil
-	case attribution.EvidenceChat:
-		return task.TriggerEvidenceRefID.Valid && task.TriggerEvidenceRefID == chatSessionID, nil
-	default:
-		return false, nil
-	}
+	return task.TriggerEvidenceKind.Valid && attribution.EvidenceKind(task.TriggerEvidenceKind.String) == attribution.EvidenceChannelChat, nil
 }
 
 // chatDoneTaskID extracts the task id from the event envelope or the typed/map

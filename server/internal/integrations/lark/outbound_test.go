@@ -235,7 +235,7 @@ func TestPatcherDeliversTaskOwnedChannelReply(t *testing.T) {
 	}
 }
 
-func TestPatcherDeliversLegacyTaskOwnedChannelReply(t *testing.T) {
+func TestPatcherSkipsDirectChatTaskOnBoundLarkSession(t *testing.T) {
 	p, q, api := newTestPatcher(t)
 	taskID := uuidFromString(t, "ee333333-ee33-ee33-ee33-eeeeeeeeeeee")
 	q.task.ChatInputTaskID = taskID
@@ -254,23 +254,42 @@ func TestPatcherDeliversLegacyTaskOwnedChannelReply(t *testing.T) {
 		Payload: protocol.ChatDonePayload{
 			TaskID:        uuidString(taskID),
 			ChatSessionID: uuidString(q.binding.ChatSessionID),
+			Content:       "web reply",
+		},
+	})
+
+	api.mu.Lock()
+	defer api.mu.Unlock()
+	if len(api.textSent) != 0 {
+		t.Fatalf("direct-chat completion must not send a Lark channel reply; got %d", len(api.textSent))
+	}
+	if len(api.deletedReactions) != 0 {
+		t.Fatalf("direct-chat completion must not clear Lark channel typing; got %d deletes", len(api.deletedReactions))
+	}
+}
+
+func TestPatcherFailClosesUnsafeLegacyTaskOwnedChannelReply(t *testing.T) {
+	p, q, api := newTestPatcher(t)
+	taskID := uuidFromString(t, "ee333333-ee33-ee33-ee33-eeeeeeeeeeee")
+	q.task.ChatInputTaskID = taskID
+	q.task.TriggerEvidenceKind = pgtype.Text{String: string(attribution.EvidenceChat), Valid: true}
+	q.task.TriggerEvidenceRefID = q.binding.ChatSessionID
+
+	p.handleEvent(events.Event{
+		Type:          protocol.EventChatDone,
+		TaskID:        uuidString(taskID),
+		ChatSessionID: uuidString(q.binding.ChatSessionID),
+		Payload: protocol.ChatDonePayload{
+			TaskID:        uuidString(taskID),
+			ChatSessionID: uuidString(q.binding.ChatSessionID),
 			Content:       "导入成功",
 		},
 	})
 
 	api.mu.Lock()
 	defer api.mu.Unlock()
-	if len(api.textSent) != 1 {
-		t.Fatalf("legacy task-owned channel completion must still send one Lark reply; got %d", len(api.textSent))
-	}
-	if api.textSent[0].Text != "导入成功" {
-		t.Errorf("text mismatch: got %q", api.textSent[0].Text)
-	}
-	if len(api.deletedReactions) != 1 {
-		t.Fatalf("typing reaction should be cleared before legacy channel reply; got %d deletes", len(api.deletedReactions))
-	}
-	if api.deletedReactions[0].ReactionID != "react_typing" {
-		t.Errorf("deleted reaction = %q, want react_typing", api.deletedReactions[0].ReactionID)
+	if len(api.textSent) != 0 {
+		t.Fatalf("unsafe legacy chat evidence must fail closed; got %d Lark replies", len(api.textSent))
 	}
 }
 
