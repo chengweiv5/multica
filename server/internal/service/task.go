@@ -1501,7 +1501,7 @@ func (s *TaskService) EnqueueChannelChatTask(ctx context.Context, chatSession db
 	}
 
 	overlay := s.buildRuntimeMCPOverlay(ctx, initiatorUserID, agent)
-	attr := attribution.DirectHumanRun(initiatorUserID, attribution.EvidenceChat, chatSession.ID)
+	attr := attribution.DirectHumanRun(initiatorUserID, attribution.EvidenceChannelChat, chatSession.ID)
 	attr, err = s.applyAttributionFallback(ctx, attr, agent)
 	if err != nil {
 		return db.AgentTaskQueue{}, err

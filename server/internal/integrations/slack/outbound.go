@@ -9,8 +9,10 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/slack-go/slack"
 
+	"github.com/multica-ai/multica/server/internal/attribution"
 	"github.com/multica-ai/multica/server/internal/events"
 	"github.com/multica-ai/multica/server/internal/integrations/channel"
 	"github.com/multica-ai/multica/server/internal/util"
@@ -21,6 +23,7 @@ import (
 // outboundQueries is the slice of generated queries the Slack outbound
 // subscriber needs. *db.Queries satisfies it.
 type outboundQueries interface {
+	GetAgentTask(ctx context.Context, id pgtype.UUID) (db.AgentTaskQueue, error)
 	GetChannelChatSessionBindingBySession(ctx context.Context, arg db.GetChannelChatSessionBindingBySessionParams) (db.ChannelChatSessionBinding, error)
 	GetChannelInstallation(ctx context.Context, arg db.GetChannelInstallationParams) (db.ChannelInstallation, error)
 }
@@ -95,6 +98,15 @@ func (o *Outbound) processEvent(ctx context.Context, e events.Event) error {
 	if content == "" {
 		return nil // nothing to say (empty completion)
 	}
+	taskID, ok := chatDoneTaskID(e)
+	if !ok {
+		return nil
+	}
+	if deliver, err := o.shouldDeliverToSlack(ctx, taskID); err != nil {
+		return err
+	} else if !deliver {
+		return nil
+	}
 	inst, err := o.q.GetChannelInstallation(ctx, db.GetChannelInstallationParams{
 		ID:          binding.InstallationID,
 		ChannelType: string(TypeSlack),
@@ -118,6 +130,34 @@ func (o *Outbound) processEvent(ctx context.Context, e events.Event) error {
 		return fmt.Errorf("post slack reply: %w", err)
 	}
 	return nil
+}
+
+func (o *Outbound) shouldDeliverToSlack(ctx context.Context, taskID pgtype.UUID) (bool, error) {
+	task, err := o.q.GetAgentTask(ctx, taskID)
+	if err != nil {
+		return false, fmt.Errorf("load agent task: %w", err)
+	}
+	if !task.ChatInputTaskID.Valid {
+		return true, nil
+	}
+	return task.TriggerEvidenceKind.Valid && attribution.EvidenceKind(task.TriggerEvidenceKind.String) == attribution.EvidenceChannelChat, nil
+}
+
+// chatDoneTaskID extracts the task id from the event envelope or the typed/map
+// payload emitted by TaskService. Outbound delivery fails closed when the task
+// origin cannot be established.
+func chatDoneTaskID(e events.Event) (pgtype.UUID, bool) {
+	raw := e.TaskID
+	if raw == "" {
+		switch p := e.Payload.(type) {
+		case protocol.ChatDonePayload:
+			raw = p.TaskID
+		case map[string]any:
+			raw, _ = p["task_id"].(string)
+		}
+	}
+	id, err := util.ParseUUID(raw)
+	return id, err == nil && id.Valid
 }
 
 // outboundTarget recovers the real send target from the chat binding. The
