@@ -85,7 +85,7 @@ func TestFlattenContent_DispatchByType(t *testing.T) {
 		{"media", "media", `{"file_key":"f"}`, "[Video]"},
 		{"video", "video", `{"file_key":"f"}`, "[Video]"},
 		{"sticker", "sticker", `{"file_key":"f"}`, "[Sticker]"},
-		{"interactive", "interactive", `{"title":"t"}`, "[interactive card]"},
+		{"interactive", "interactive", `{"title":"t","card_link":{"url":"https://x"}}`, "t (https://x)"},
 		{"share_chat", "share_chat", `{"chat_id":"oc"}`, "[Shared Chat]"},
 		{"merge_forward", "merge_forward", `{"content":"Merged and Forwarded Message"}`, "[forwarded messages]"},
 		{"unknown", "totally_new_type", `{}`, ""},
@@ -96,6 +96,39 @@ func TestFlattenContent_DispatchByType(t *testing.T) {
 			t.Parallel()
 			if got := flattenContent(tc.msgType, tc.content); got != tc.want {
 				t.Errorf("flattenContent(%q) = %q want %q", tc.msgType, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestFlattenInteractiveContent_LinkShareCard(t *testing.T) {
+	t.Parallel()
+	raw := `{"title":"Shared project note","card_link":{"url":"https://example.com/shared-note","android_url":"","ios_url":"","pc_url":""},"elements":[]}`
+	want := "Shared project note (https://example.com/shared-note)"
+	if got := flattenContent("interactive", raw); got != want {
+		t.Errorf("got %q want %q", got, want)
+	}
+}
+
+func TestFlattenInteractiveContent_Fallbacks(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{"url only", `{"card_link":{"url":"https://x"}}`, "https://x"},
+		{"title only", `{"title":"t"}`, "t"},
+		{"empty elements no title no url", `{"elements":[]}`, "[interactive card]"},
+		{"empty string", "", ""},
+		{"malformed", "not json", "[interactive card]"},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got := flattenContent("interactive", tc.raw); got != tc.want {
+				t.Errorf("got %q want %q", got, tc.want)
 			}
 		})
 	}

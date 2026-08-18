@@ -45,7 +45,7 @@ func flattenContent(msgType, rawContent string) string {
 	case "sticker":
 		return "[Sticker]"
 	case "interactive":
-		return "[interactive card]"
+		return flattenInteractiveContent(rawContent)
 	case "share_chat":
 		return "[Shared Chat]"
 	case "share_user":
@@ -167,4 +167,31 @@ func flattenPostParagraph(spans []larkPostSpan) string {
 		}
 	}
 	return strings.Join(parts, " ")
+}
+
+type larkInteractiveContent struct {
+	Title    string `json:"title"`
+	CardLink struct {
+		URL string `json:"url"`
+	} `json:"card_link"`
+}
+
+func flattenInteractiveContent(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	var doc larkInteractiveContent
+	if err := json.Unmarshal([]byte(raw), &doc); err != nil {
+		return "[interactive card]"
+	}
+	switch {
+	case doc.Title != "" && doc.CardLink.URL != "":
+		return doc.Title + " (" + doc.CardLink.URL + ")"
+	case doc.CardLink.URL != "":
+		return doc.CardLink.URL
+	case doc.Title != "":
+		return doc.Title
+	default:
+		return "[interactive card]"
+	}
 }

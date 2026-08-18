@@ -458,6 +458,34 @@ func TestLarkJSONFrameDecoderMediaMessageKeepsPlaceholderAndContent(t *testing.T
 // `post` message is flattened to plain text end-to-end through Decode —
 // the MUL-2951 example. Body.content is the JSON-encoded post object; we
 // marshal a Go string to get the correctly-escaped content field.
+func TestLarkJSONFrameDecoderInteractiveCardFlattened(t *testing.T) {
+	t.Parallel()
+	cardContent := `{"title":"Shared project note","card_link":{"url":"https://example.com/shared-note"},"elements":[]}`
+	escaped, err := json.Marshal(cardContent)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	raw := []byte(`{
+		"type":"event_callback",
+		"header":{"event_id":"e","event_type":"im.message.receive_v1","app_id":"a"},
+		"event":{
+			"sender":{"sender_id":{"open_id":"ou_user"}},
+			"message":{"message_id":"m","chat_id":"c","chat_type":"p2p","message_type":"interactive","content":` + string(escaped) + `}
+		}
+	}`)
+	msg, ok, err := NewLarkJSONFrameDecoder().Decode(raw, Installation{})
+	if err != nil || !ok {
+		t.Fatalf("ok=%v err=%v", ok, err)
+	}
+	want := "Shared project note (https://example.com/shared-note)"
+	if msg.Body != want {
+		t.Errorf("Body = %q; want %q", msg.Body, want)
+	}
+	if msg.CommandBody != want {
+		t.Errorf("CommandBody = %q; want %q", msg.CommandBody, want)
+	}
+}
+
 func TestLarkJSONFrameDecoderPostMessageFlattened(t *testing.T) {
 	t.Parallel()
 	postContent := `{"title":"周报","content":[[{"tag":"text","text":"本周完成："}],[{"tag":"text","text":"Lark 集成"},{"tag":"a","href":"https://github.com/multica-ai/multica/pull/3277","text":"PR #3277"}]]}`
